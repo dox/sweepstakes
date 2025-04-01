@@ -11,13 +11,7 @@
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 	
 	<!-- Favicons -->
-<link rel="apple-touch-icon" href="/docs/5.3/assets/img/favicons/apple-touch-icon.png" sizes="180x180">
-<link rel="icon" href="/docs/5.3/assets/img/favicons/favicon-32x32.png" sizes="32x32" type="image/png">
-<link rel="icon" href="/docs/5.3/assets/img/favicons/favicon-16x16.png" sizes="16x16" type="image/png">
-<link rel="manifest" href="/docs/5.3/assets/img/favicons/manifest.json">
-<link rel="mask-icon" href="/docs/5.3/assets/img/favicons/safari-pinned-tab.svg" color="#712cf9">
-<link rel="icon" href="/docs/5.3/assets/img/favicons/favicon.ico">
-<meta name="theme-color" content="#712cf9">
+	<meta name="theme-color" content="#712cf9">
 </head>
 
 <body>
@@ -53,7 +47,9 @@
 		
 		<div class="row g-5">
 			<button id="generate-draw-btn" class="btn btn-primary btn-lg px-4">Generate Draw</button>
+			<button id="load-draw-btn" class="btn btn-warning btn-lg px-4">Load Previous Draw</button>
 			
+			<!-- Results Table -->
 			<div class="mt-4">
 				<h2 class="text-body-emphasis">Draw Results</h2>
 				<table class="table table-striped" id="draw-table">
@@ -67,7 +63,6 @@
 					<tbody></tbody>
 				</table>
 			</div>
-
 		</div>
 	</main>
 	
@@ -78,69 +73,89 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-</body>
-</html>
-
-
-
-
 <script>
 var default_horses = "Burrows Saint\nMagic Of Light\nAny Second Now\nTakingrisks\nCloth Cap\nMinella Times\nBristol De Mai\nYala Enki";
 var default_entrants = "Person 1\nPerson 2\nPerson 3\nPerson 4\nPerson 5\n";
 
-document.getElementById('horses').addEventListener('input', function () {
-	saveData('horses', this.value);
-});
-
-document.getElementById('entrants').addEventListener('input', function () {
-	saveData('entrants', this.value);
-});
-// Save data to localStorage
-function saveData(key, value) {
-	localStorage.setItem(key, value);
-}
-
-// Load data from localStorage
-function loadData(key) {
-	return localStorage.getItem(key);
-}
-
-
-
+// Auto-populate horses and entrants from localStorage
 document.addEventListener('DOMContentLoaded', function () {
 	document.getElementById('horses').value = localStorage.getItem('horses') || default_horses;
 	document.getElementById('entrants').value = localStorage.getItem('entrants') || default_entrants;
+	
+	// Only show Load button if there's a saved draw
+	document.getElementById('load-draw-btn').style.display = localStorage.getItem('drawResults') ? 'inline-block' : 'none';
 });
 
-document.getElementById('generate-draw-btn').addEventListener('click', function () {
-	const horses = document.getElementById('horses').value.split('\n').map(h => h.trim()).filter(h => h);
-	const entrants = document.getElementById('entrants').value.split('\n').map(e => e.trim()).filter(e => e);
+// Save to localStorage when the user types in the textareas
+document.getElementById('horses').addEventListener('input', function () {
+	localStorage.setItem('horses', this.value);
+});
 
-	if (horses.length === 0 || entrants.length === 0) {
-		alert("Please enter both horses and entrants.");
-		return;
+document.getElementById('entrants').addEventListener('input', function () {
+	localStorage.setItem('entrants', this.value);
+});
+
+// Generate Random Draw
+function generateDraw() {
+	const horses = document.getElementById('horses').value.trim().split("\n").filter(h => h.length > 0);
+	const entrants = document.getElementById('entrants').value.trim().split("\n").filter(e => e.length > 0);
+	const drawResults = [];
+	const assignedHorses = new Set();
+
+	// Generate assignments
+	while (entrants.length > 0 && horses.length > 0) {
+		const entrant = entrants.pop();
+		const horse = horses.splice(Math.floor(Math.random() * horses.length), 1)[0];
+		drawResults.push({ entrant, horse });
+		assignedHorses.add(horse);
 	}
 
-	// Shuffle horses randomly
-	const shuffledHorses = horses.sort(() => Math.random() - 0.5);
-	const shuffledEntrants = entrants.sort(() => Math.random() - 0.5);
-
-	const drawResults = [];
-
-	// Assign each entrant exactly one horse
-	shuffledHorses.forEach((horse, index) => {
-		const entrant = index < shuffledEntrants.length ? shuffledEntrants[index] : "Unclaimed";
-		drawResults.push({ entrant, horse });
+	// Handle unclaimed horses
+	horses.forEach(horse => {
+		drawResults.push({ entrant: "Unclaimed", horse });
 	});
 
-	// Update table
-	const tableBody = document.getElementById('draw-table').querySelector('tbody');
-	tableBody.innerHTML = ""; // Clear previous results
+	// Save to localStorage and update display
+	localStorage.setItem('drawResults', JSON.stringify(drawResults));
 
+	// Populate table
+	const tableBody = document.getElementById('draw-table').getElementsByTagName('tbody')[0];
+	tableBody.innerHTML = '';
 	drawResults.forEach((entry, index) => {
-		const row = document.createElement("tr");
-		row.innerHTML = `<td>${index + 1}</td><td>${entry.entrant}</td><td>${entry.horse}</td>`;
-		tableBody.appendChild(row);
+		const row = tableBody.insertRow();
+		const cell1 = row.insertCell(0);
+		const cell2 = row.insertCell(1);
+		const cell3 = row.insertCell(2);
+		cell1.textContent = index + 1;
+		cell2.textContent = entry.entrant;
+		cell3.textContent = entry.horse;
 	});
+}
+
+// Load Previous Draw
+document.getElementById('load-draw-btn').addEventListener('click', function () {
+	const savedDraw = localStorage.getItem('drawResults');
+	if (savedDraw) {
+		const drawResults = JSON.parse(savedDraw);
+		const tableBody = document.getElementById('draw-table').getElementsByTagName('tbody')[0];
+		tableBody.innerHTML = '';
+		drawResults.forEach((entry, index) => {
+			const row = tableBody.insertRow();
+			const cell1 = row.insertCell(0);
+			const cell2 = row.insertCell(1);
+			const cell3 = row.insertCell(2);
+			cell1.textContent = index + 1;
+			cell2.textContent = entry.entrant;
+			cell3.textContent = entry.horse;
+		});
+	} else {
+		alert('No previous draw found!');
+	}
 });
+
+// Event listeners
+document.getElementById('generate-draw-btn').addEventListener('click', generateDraw);
+
 </script>
+</body>
+</html>
